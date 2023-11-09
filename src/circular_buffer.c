@@ -1,9 +1,51 @@
 #include "circular_buffer.h"
 #include <string.h>
 
+/*******************************************************************************
+ * Definitions
+ ******************************************************************************/
+
+#define CB_HEAD_GET_HEADER(cb)                                                 \
+    (CB_BUFFER_PTR(cb)[CB_HEAD(cb)] << 8 |                                     \
+     CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
+
+#define CB_HEADER_GET_DATA_LEN(cb)                                             \
+    ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) |                                 \
+     CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
+
+#define CB_HEADER_GET_ID(cb) ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0xF0) >> 0x4)
+
+#define CB_HEADER_INSERT(cb, len)                                              \
+    ({                                                                         \
+        CB_BUFFER_PTR(cb)                                                      \
+        [CB_TAIL(cb)] = (uint8_t)((CB_HEADER_ID << 4) | len >> 8);             \
+        CB_BUFFER_PTR(cb)                                                      \
+        [(CB_TAIL(cb) + 1) % CB_BUFFER_SIZE(cb)] = (uint8_t)len;               \
+    })
+
+#define CB_GET_TAIL_FORWARD_SPACE(cb)                                          \
+    ({                                                                         \
+        CB_HEAD(cb) <= CB_TAIL(cb) ? (CB_BUFFER_SIZE(cb) - CB_TAIL(cb))        \
+                                   : (CB_HEAD(cb) - CB_TAIL(cb));              \
+    })
+
+#define CB_GET_HEAD_FORWARD_LEN(cb)                                            \
+    ({                                                                         \
+        CB_HEAD(cb) < CB_TAIL(cb) ? (CB_TAIL(cb) - CB_HEAD(cb))                \
+                                  : (CB_BUFFER_SIZE(cb) - CB_HEAD(cb));        \
+    })
+
+/*******************************************************************************
+ * Private prototype
+ ******************************************************************************/
+
 static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
                                         cb_size_t len);
 static cb_size_t get_empty_space(circular_buffer_t *cb);
+
+/*******************************************************************************
+ * Public
+ ******************************************************************************/
 
 circular_buffer_status_t circular_buffer_init(circular_buffer_t *cb,
                                               uint8_t *buffer, cb_size_t size,
@@ -53,22 +95,28 @@ circular_buffer_status_t circular_buffer_push_dl(circular_buffer_t *cb,
     return cb_push(cb, data, len);
 }
 
-cb_size_t circular_buffer_pop(circular_buffer_t *cb, uint8_t *buffer,
-                              const cb_size_t size) {
+circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
+                                             uint8_t *o_buffer,
+                                             const cb_size_t size,
+                                             cb_size_t *o_element_len) {
     uint8_t *bptr = NULL;
     cb_size_t element_len;
 
-    if (cb == NULL || buffer == NULL || size == 0)
-        return 0;
+    *o_element_len = 0;
+
+    if (cb == NULL || o_buffer == NULL || size == 0)
+        return CIRCULAR_BUFFER_INVALID_PARAM;
 
     const bool dynamic_len = CB_ELEMENT_LEN(cb) == 0;
     cb_size_t head = CB_HEAD(cb);
     cb_size_t forward_len = CB_GET_HEAD_FORWARD_LEN(cb);
 
     if (circular_buffer_is_empty(cb))
-        return 0;
+        return CIRCULAR_BUFFER_SUCCESS;
 
     if (dynamic_len) {
+        if (CB_HEADER_GET_ID(cb) != CB_HEADER_ID)
+            return CIRCULAR_BUFFER_INVALID_HEADER;
         element_len = CB_HEADER_GET_DATA_LEN(cb);
         forward_len = forward_len <= CB_HEADER_SIZE ? 0 : forward_len - 2;
         head = (head + CB_HEADER_SIZE) % CB_BUFFER_SIZE(cb);
@@ -77,22 +125,27 @@ cb_size_t circular_buffer_pop(circular_buffer_t *cb, uint8_t *buffer,
     }
 
     if (size < element_len)
-        return 0;
+        return CIRCULAR_BUFFER_INSUFFICIENT_SPACE;
 
     bptr = CB_BUFFER_PTR(cb) + head;
 
     if (forward_len >= element_len) {
-        memcpy(buffer, bptr, element_len);
+        memcpy(o_buffer, bptr, element_len);
     } else {
-        memcpy(buffer, bptr, forward_len);
-        memcpy(buffer + forward_len, CB_BUFFER_PTR(cb),
+        memcpy(o_buffer, bptr, forward_len);
+        memcpy(o_buffer + forward_len, CB_BUFFER_PTR(cb),
                element_len - forward_len);
     }
 
     CB_HEAD(cb) = (head + element_len) % CB_BUFFER_SIZE(cb);
+    *o_element_len = element_len;
 
-    return element_len;
+    return CIRCULAR_BUFFER_SUCCESS;
 }
+
+/*******************************************************************************
+ * Private
+ ******************************************************************************/
 
 static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
                                         cb_size_t len) {

@@ -28,6 +28,7 @@ void test_circular_buffer_pop_invalid_arg(void);
 void test_circular_buffer_pop_1byte(void);
 void test_circular_buffer_pop_4bytes(void);
 void test_circular_buffer_pop_dl_bytes(void);
+void test_circular_buffer_pop_small_out_buffer(void);
 
 void setUp(void) {}
 
@@ -62,6 +63,7 @@ int main(void) {
     RUN_TEST(test_circular_buffer_pop_1byte);
     RUN_TEST(test_circular_buffer_pop_4bytes);
     RUN_TEST(test_circular_buffer_pop_dl_bytes);
+    RUN_TEST(test_circular_buffer_pop_small_out_buffer);
 
     return UNITY_END();
 }

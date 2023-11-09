@@ -16,7 +16,7 @@ C_COMPILER=clang
 endif
 
 UNITY_ROOT=Unity
-UNITYFLAGS += -DUNITY_OUTPUT_COLOR
+UNITYFLAGS += -DUNITY_OUTPUT_COLOR -DCB_DEBUG=1
 
 CFLAGS=-std=c99 -Wall -Wextra -Wpointer-arith -Wcast-align -Wwrite-strings \
 		-Wswitch-default -Wunreachable-code -Winit-self -Wmissing-field-initializers \

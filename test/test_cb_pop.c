@@ -5,6 +5,7 @@
 static circular_buffer_t cb;
 static uint8_t buffer[10];
 static cb_size_t ret;
+static cb_size_t element_len;
 
 /**
  * @brief Test: Invalid requests
@@ -18,19 +19,30 @@ void test_circular_buffer_pop_invalid_arg(void) {
     cb.tail = sizeof(buffer) - 1;
     uint8_t o_buffer[sizeof(buffer)] = {0};
 
-    ret = circular_buffer_pop(NULL, o_buffer, sizeof(o_buffer));
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ret, "Invalid CB pointer");
+    element_len = 1;
+    ret = circular_buffer_pop(NULL, o_buffer, sizeof(o_buffer), &element_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_INVALID_PARAM, ret,
+                                  "Invalid CB pointer");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, element_len, "CB element len");
 
-    ret = circular_buffer_pop(&cb, NULL, sizeof(o_buffer));
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ret, "Invalid buffer pointer");
+    element_len = 1;
+    ret = circular_buffer_pop(&cb, NULL, sizeof(o_buffer), &element_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_INVALID_PARAM, ret,
+                                  "Invalid buffer pointer");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, element_len, "CB element len");
 
-    ret = circular_buffer_pop(&cb, o_buffer, 0);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ret, "Buffer size equal to 0");
+    element_len = 1;
+    ret = circular_buffer_pop(&cb, o_buffer, 0, &element_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_INVALID_PARAM, ret,
+                                  "Buffer size equal to 0");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, element_len, "CB element len");
 
+    element_len = 1;
     cb.head = 1;
     cb.tail = 1;
-    ret = circular_buffer_pop(&cb, o_buffer, sizeof(buffer));
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, ret, "CB empty");
+    ret = circular_buffer_pop(&cb, o_buffer, sizeof(buffer), &element_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret, "CB empty");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, element_len, "CB element len");
 }
 
 /**
@@ -46,8 +58,10 @@ void test_circular_buffer_pop_1byte(void) {
 
     uint8_t o_buffer[sizeof(buffer)] = {0};
     for (int i = 0; i < (int)sizeof(buffer) - 1; i++) {
-        ret = circular_buffer_pop(&cb, &o_buffer[i], sizeof(o_buffer));
-        TEST_ASSERT_EQUAL_INT_MESSAGE(ELE_LEN, ret, "N bytes read");
+        ret = circular_buffer_pop(&cb, &o_buffer[i], sizeof(o_buffer),
+                                  &element_len);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret, "CB empty");
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ELE_LEN, element_len, "N bytes read");
         TEST_ASSERT_EQUAL_INT_MESSAGE(bdata[i], o_buffer[i], "Pop 1 byte");
     }
     TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(bdata, o_buffer, sizeof(o_buffer) - 1,
@@ -77,8 +91,9 @@ void test_circular_buffer_pop_4bytes(void) {
         uint8_t expected[ELE_LEN];
         memset(expected, 2 + i, ELE_LEN);
         memset(o_buffer, 0, ELE_LEN);
-        ret = circular_buffer_pop(&cb, o_buffer, ELE_LEN);
-        TEST_ASSERT_EQUAL_INT_MESSAGE(ELE_LEN, ret, "N bytes read");
+        ret = circular_buffer_pop(&cb, o_buffer, ELE_LEN, &element_len);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret, "CB empty");
+        TEST_ASSERT_EQUAL_INT_MESSAGE(ELE_LEN, element_len, "N bytes read");
         TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(expected, o_buffer, ELE_LEN,
                                              "Pop 4 bytes");
     }
@@ -102,11 +117,27 @@ void test_circular_buffer_pop_dl_bytes(void) {
     cb.head = 3;
 
     for (int i = 2; i <= 3; i++) {
-        ret = circular_buffer_pop(&cb, data, sizeof(data));
-        TEST_ASSERT_EQUAL_INT_MESSAGE(i, ret, "Pop Dl ret");
+        ret = circular_buffer_pop(&cb, data, sizeof(data), &element_len);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret, "CB empty");
+        TEST_ASSERT_EQUAL_INT_MESSAGE(i, element_len, "Pop Dl ret");
         uint8_t t[sizeof(buffer)];
         memset(t, 0x9 + i, sizeof(t));
-        TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(t, data, ret, "t Dl data");
+        TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(t, data, element_len, "t Dl data");
     }
     TEST_ASSERT_TRUE_MESSAGE(circular_buffer_is_empty(&cb), "Is empty");
+}
+
+void test_circular_buffer_pop_small_out_buffer(void) {
+    uint8_t dcmp[] = {0x90, 0x09, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    uint8_t buffer[10];
+    circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
+    memcpy(buffer, dcmp, sizeof(dcmp));
+    uint8_t out[5] = {0};
+    cb.tail = 11;
+    cb.head = 0;
+    ret = circular_buffer_pop(&cb, out, sizeof(out), &element_len);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_INSUFFICIENT_SPACE, ret,
+                                  "Pop - Small out buffer");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(11, cb.tail, "Pop - Small out buffer - tail");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, cb.head, "Pop - Small out buffer - head");
 }

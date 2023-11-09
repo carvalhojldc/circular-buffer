@@ -6,27 +6,32 @@
 static circular_buffer_t cb;
 static uint8_t buffer[200];
 static circular_buffer_status_t status;
+static int element_len;
 
 void print_error(circular_buffer_status_t status);
 
 int main(void) {
+    printf("CB sample - Dynamic length\n");
+
     status = circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
     print_error(status);
     if (status != CIRCULAR_BUFFER_SUCCESS)
         return 1;
 
+    printf("\nstarting push...\n");
+
     char *str = "Ola mundo!";
-    printf("push: %s\n", str);
+    printf("push: [%d bytes] %s\n", (int)strlen(str), str);
     status = circular_buffer_push_dl(&cb, str, strlen(str));
     print_error(status);
 
     str = "Hello world";
-    printf("push: %s\n", str);
+    printf("push: [%d bytes] %s\n", (int)strlen(str), str);
     status = circular_buffer_push_dl(&cb, str, strlen(str));
     print_error(status);
 
     str = "Keyboard test qwerty 123456789";
-    printf("push: %s\n", str);
+    printf("push: [%d bytes] %s\n", (int)strlen(str), str);
     status = circular_buffer_push_dl(&cb, str, strlen(str));
     print_error(status);
 
@@ -35,9 +40,10 @@ int main(void) {
     char out[100];
     while (!circular_buffer_is_empty(&cb)) {
         memset(out, 0, sizeof(out));
-        cb_size_t ret = circular_buffer_pop(&cb, (uint8_t *)out, sizeof(out));
-        if (ret != 0)
-            printf("pop: %s\n", out);
+        status = circular_buffer_pop(&cb, (uint8_t *)out, sizeof(out),
+                                     (cb_size_t *)&element_len);
+        if (status == CIRCULAR_BUFFER_SUCCESS && element_len != 0)
+            printf("pop: [%d bytes] %s \n", element_len, out);
     }
 
     return 0;
