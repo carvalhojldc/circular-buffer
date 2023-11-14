@@ -23,18 +23,20 @@ void test_circular_buffer_push_dl_header(void) {
 /**
  * @brief Test: Push dynamic data
  *         h h 0xa
- *         h h 0xa h h 0xb 0xb
- *         h h 0xa h h 0xb 0xb h h 0xc 0xc 0xc
+ *         h h 0xa h h 0xb 0xc
+ *         h h 0xa h h 0xb 0xc h h 0xd 0xe 0xf
  */
 void test_circular_buffer_push_dl(void) {
     uint8_t bcmp[] = {0x90, 0x01, 0xa, 0x90, 0x02, 0xb,
-                      0xb,  0x90, 0x3, 0xc,  0xc,  0xc};
+                      0xc,  0x90, 0x3, 0xd,  0xe,  0xf};
     uint8_t buffer[15];
     circular_buffer_init(&cb, buffer, sizeof(buffer), false, 0);
     uint8_t data[sizeof(buffer)] = {0};
 
+    uint8_t byte = 0xa;
     for (int i = 1; i <= 3; i++) {
-        memset(data, 0x9 + i, i);
+        for (int j = 0; j < i; j++)
+            data[j] = byte++;
         ret = circular_buffer_push_dl(&cb, data, i);
         TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
                                       "Push CircularBuffer");
@@ -73,17 +75,19 @@ void test_circular_buffer_push_dl_NOT_overwrite(void) {
 /**
  * @brief Test: Push dynamic data
  *         h h 0xa
- *         h h 0xa h h 0xb 0xb
- *         0xc 0xc 0xa h h 0xb 0xb h h 0xc
+ *         h h 0xa h h 0xb 0xc
+ *         0xe 0xf 0xa h h 0xb 0xc h h 0xd
  */
 void test_circular_buffer_push_dl_overwrite(void) {
-    uint8_t bcmp[] = {0xc, 0xc, 0xa, 0x90, 0x02, 0xb, 0xb, 0x90, 0x03, 0xc};
+    uint8_t bcmp[] = {0xe, 0xf, 0xa, 0x90, 0x02, 0xb, 0xc, 0x90, 0x03, 0xd};
     uint8_t buffer[10];
     circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
     uint8_t data[sizeof(buffer)] = {0};
 
+    uint8_t byte = 0xa;
     for (int i = 1; i <= 3; i++) {
-        memset(data, 0x9 + i, i);
+        for (int j = 0; j < i; j++)
+            data[j] = byte++;
         ret = circular_buffer_push_dl(&cb, data, i);
         TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
                                       "Push CircularBuffer");

@@ -178,7 +178,8 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
         memcpy(bptr, data, element_len);
     } else {
         memcpy(bptr, data, forward_space);
-        memcpy(CB_BUFFER_PTR(cb), data, element_len - forward_space);
+        memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space,
+               element_len - forward_space);
     }
 
     CB_TAIL(cb) = (tail + element_len) % CB_BUFFER_SIZE(cb);
