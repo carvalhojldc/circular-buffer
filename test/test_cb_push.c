@@ -135,41 +135,42 @@ void test_circular_buffer_push_4byte_NOT_overwrite_oldest(void) {
  * @brief Test: 4byte-element push with 'overwrite_oldest' tag enabled
  *        The buffer can accept all insertions and the Tail must rotate to
  *        insert the 3rd element and overwrite the first
- *          * 1st insertion : {1, 1, 1, 1, 0, 0, 0, 0, 0, 0}
- *          * 2nd insertion : {1, 1, 1, 1, 2, 2, 2, 2, 0, 0}
- *          * 3rd insertion : {3, 3, 1, 1, 2, 2, 2, 2, 3, 3}
+ *          * 1st insertion : {10, 11, 12, 13, 00, 00, 00, 00, 00, 00}
+ *          * 2nd insertion : {10, 11, 12, 13, 20, 21, 22, 23, 00, 00}
+ *          * 3rd insertion : {32, 33, 12, 13, 20, 21, 22, 23, 30, 31}
  *                            Overwrite 1st element and move Had
  */
 void test_circular_buffer_push_4byte_overwrite_oldest(void) {
     circular_buffer_t cb;
     uint8_t buffer[10];
     const uint8_t SIZE = 4;
-    uint8_t bcmp[sizeof(buffer)] = {3, 3, 1, 1, 2, 2, 2, 2, 3, 3};
+    uint8_t bcmp[sizeof(buffer)] = {32, 33, 12, 13, 20, 21, 22, 23, 30, 31};
 
     circular_buffer_status_t ret =
         circular_buffer_init(&cb, buffer, sizeof(buffer), true, SIZE);
     TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
                                   "CircularBuffer creation");
     /* 10 bytes buffer - 3 insetions to test rotation with 4byte-element */
+    uint8_t byte = 0;
     for (int i = 0; i < 3; i++) {
         uint8_t data[SIZE];
-        memset(data, i + 1, SIZE);
+        byte += 10;
+        for (int j = 0; j < SIZE; j++)
+            data[j] = byte + j;
         ret = circular_buffer_push(&cb, &data);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
+                                      "Push CircularBuffer");
         if (i < 2) {
-            TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
-                                          "Push CircularBuffer");
             TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(data, buffer + (SIZE * i),
                                                  SIZE, "Push Error");
             TEST_ASSERT_FALSE_MESSAGE(circular_buffer_is_empty(&cb),
                                       "Buffer empty");
         } else {
             /* Validate rotation from 3rd element*/
-            TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(data, buffer, SIZE / 2,
-                                                 "Push Error start");
+            TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(data + SIZE / 2, buffer,
+                                                 SIZE / 2, "Push Error start");
             TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(data, buffer + (SIZE * i),
                                                  SIZE / 2, "Push Error end");
-            TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
-                                          "Push CircularBuffer");
         }
     }
     TEST_ASSERT_EQUAL_INT_MESSAGE(4, CB_HEAD((&cb)), "Head validation");
