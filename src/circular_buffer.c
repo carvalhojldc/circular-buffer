@@ -199,5 +199,8 @@ static cb_size_t get_empty_space(circular_buffer_t *cb) {
         len = CB_HEAD(cb) - CB_TAIL(cb);
     else
         len = ((CB_BUFFER_SIZE(cb) - CB_TAIL(cb)) + CB_HEAD(cb));
+    /**
+     * @brief 1 byte is reserved for Tail to be different from Head when the
+     * buffer is full */
     return (len - 1);
 }

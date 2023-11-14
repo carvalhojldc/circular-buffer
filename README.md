@@ -4,7 +4,7 @@ A simple circular buffer to be used with fixed and dynamic data length.
 
 ## Usage
 
-### Initailization
+### Initialization
 
 A storage buffer must be allocated and passed at Circular Buffer initialization.
 
