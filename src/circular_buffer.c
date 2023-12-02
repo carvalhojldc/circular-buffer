@@ -185,12 +185,23 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
             (forward_space <= CB_HEADER_SIZE) ? 0 : forward_space - 2;
     }
     bptr = CB_BUFFER_PTR(cb) + tail;
+    tail = (tail + element_len) %
+           CB_BUFFER_SIZE(cb); /* Calculate new tail position */
 
     if (forward_space >= element_len) {
+        if (CB_OVERWRITE_OLDEST(cb) && CB_TAIL(cb) < CB_HEAD(cb) &&
+            CB_HEAD(cb) < tail) {
+            /* When a new element will overwrite the reference of the head */
+            while (CB_HEAD(cb) < tail) {
+                CB_HEAD(cb) = (CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) +
+                               cb->internal.header_sz) %
+                              CB_BUFFER_SIZE(cb);
+            }
+        }
         memcpy(bptr, data, element_len);
     } else {
         const cb_size_t shift_len = element_len - forward_space;
-        while (CB_HEAD(cb) <= shift_len) {
+        while (CB_OVERWRITE_OLDEST(cb) && CB_HEAD(cb) < shift_len) {
             /* Skip packets smaller than shifted data */
             CB_HEAD(cb) = (CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) +
                            cb->internal.header_sz) %
@@ -200,7 +211,7 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
         memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space, shift_len);
     }
 
-    CB_TAIL(cb) = (tail + element_len) % CB_BUFFER_SIZE(cb);
+    CB_TAIL(cb) = tail; /* Set new tail position */
 
     if (CB_OVERWRITE_OLDEST(cb)) {
         if (CB_TAIL(cb) == CB_HEAD(cb)) {
