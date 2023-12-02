@@ -28,6 +28,10 @@ struct circular_buffer_s {
         bool overwrite_oldest;
         uint8_t element_len;
     } buffer;
+    struct {
+        bool dynamic_len;
+        cb_size_t header_sz;
+    } internal;
 };
 
 typedef struct circular_buffer_s circular_buffer_t;

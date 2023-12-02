@@ -10,8 +10,10 @@
      CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
 
 #define CB_HEADER_GET_DATA_LEN(cb)                                             \
-    ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) |                                 \
-     CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
+    (cb->internal.dynamic_len                                                  \
+         ? ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) |                          \
+            CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])         \
+         : cb->buffer.element_len)
 
 #define CB_HEADER_GET_ID(cb) ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0xF0) >> 0x4)
 
@@ -56,10 +58,15 @@ circular_buffer_status_t circular_buffer_init(circular_buffer_t *cb,
     }
 
     memset(buffer, 0, size);
+    memset(cb, 0, sizeof(circular_buffer_t));
+
     cb->buffer.ptr = buffer;
     cb->buffer.size = size;
     cb->buffer.overwrite_oldest = overwrite_oldest;
     cb->buffer.element_len = element_len;
+
+    cb->internal.dynamic_len = element_len == 0;
+    cb->internal.header_sz = element_len == 0 ? CB_HEADER_SIZE : 0;
 
     cb->head = 0;
     cb->tail = 0;
@@ -79,7 +86,10 @@ bool circular_buffer_is_full(circular_buffer_t *cb) {
 bool circular_buffer_has_enough_space(circular_buffer_t *cb, cb_size_t len) {
     if (cb == NULL)
         return false;
-    else if (CB_OVERWRITE_OLDEST(cb))
+
+    len = (cb->internal.dynamic_len) ? (len + CB_HEADER_SIZE) : len;
+
+    if (CB_OVERWRITE_OLDEST(cb))
         return ((CB_BUFFER_SIZE(cb) - 1) >= len);
     else
         return (get_empty_space(cb) >= len);
@@ -154,8 +164,9 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     if (cb == NULL || data == NULL || (CB_ELEMENT_LEN(cb) == 0 && len == 0))
         return CIRCULAR_BUFFER_INVALID_PARAM;
 
-    const bool dynamic_len = CB_ELEMENT_LEN(cb) == 0;
+    const bool dynamic_len = cb->internal.dynamic_len;
     const cb_size_t element_len = dynamic_len ? len : CB_ELEMENT_LEN(cb);
+    const cb_size_t c_head_len = CB_HEADER_GET_DATA_LEN(cb);
     cb_size_t forward_space = CB_GET_TAIL_FORWARD_SPACE(cb);
     cb_size_t tail = CB_TAIL(cb);
 
@@ -170,7 +181,8 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
          */
         CB_HEADER_INSERT(cb, len);
         tail = (tail + CB_HEADER_SIZE) % CB_BUFFER_SIZE(cb);
-        forward_space = forward_space <= CB_HEADER_SIZE ? 0 : forward_space - 2;
+        forward_space =
+            (forward_space <= CB_HEADER_SIZE) ? 0 : forward_space - 2;
     }
     bptr = CB_BUFFER_PTR(cb) + tail;
 
@@ -185,8 +197,13 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     CB_TAIL(cb) = (tail + element_len) % CB_BUFFER_SIZE(cb);
 
     if (CB_OVERWRITE_OLDEST(cb)) {
-        if (CB_TAIL(cb) == CB_HEAD(cb) || forward_space < element_len)
-            CB_HEAD(cb) = (CB_HEAD(cb) + element_len) % CB_BUFFER_SIZE(cb);
+        const cb_size_t el_len = element_len + cb->internal.header_sz;
+        if (CB_TAIL(cb) == CB_HEAD(cb) ||
+            (forward_space < el_len &&
+             (el_len - forward_space) > CB_HEAD(cb))) {
+            CB_HEAD(cb) = (CB_HEAD(cb) + c_head_len + cb->internal.header_sz) %
+                          CB_BUFFER_SIZE(cb);
+        }
     }
 
     return CIRCULAR_BUFFER_SUCCESS;
