@@ -189,18 +189,21 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     if (forward_space >= element_len) {
         memcpy(bptr, data, element_len);
     } else {
+        const cb_size_t shift_len = element_len - forward_space;
+        while (CB_HEAD(cb) <= shift_len) {
+            /* Skip packets smaller than shifted data */
+            CB_HEAD(cb) = (CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) +
+                           cb->internal.header_sz) %
+                          CB_BUFFER_SIZE(cb);
+        }
         memcpy(bptr, data, forward_space);
-        memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space,
-               element_len - forward_space);
+        memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space, shift_len);
     }
 
     CB_TAIL(cb) = (tail + element_len) % CB_BUFFER_SIZE(cb);
 
     if (CB_OVERWRITE_OLDEST(cb)) {
-        const cb_size_t el_len = element_len + cb->internal.header_sz;
-        if (CB_TAIL(cb) == CB_HEAD(cb) ||
-            (forward_space < el_len &&
-             (el_len - forward_space) > CB_HEAD(cb))) {
+        if (CB_TAIL(cb) == CB_HEAD(cb)) {
             CB_HEAD(cb) = (CB_HEAD(cb) + c_head_len + cb->internal.header_sz) %
                           CB_BUFFER_SIZE(cb);
         }
