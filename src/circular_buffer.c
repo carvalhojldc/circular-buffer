@@ -173,7 +173,6 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
 
     const bool dynamic_len = cb->internal.dynamic_len;
     const cb_size_t element_len = dynamic_len ? len : CB_ELEMENT_LEN(cb);
-    const cb_size_t c_head_len = CB_HEADER_GET_DATA_LEN(cb);
     cb_size_t forward_space = CB_GET_TAIL_FORWARD_SPACE(cb);
     cb_size_t tail = CB_TAIL(cb);
 
@@ -209,8 +208,7 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
 
     if (CB_OVERWRITE_OLDEST(cb)) {
         if (CB_TAIL(cb) == CB_HEAD(cb)) {
-            CB_HEAD(cb) = (CB_HEAD(cb) + c_head_len + cb->internal.header_sz) %
-                          CB_BUFFER_SIZE(cb);
+            CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
         }
     }
 
