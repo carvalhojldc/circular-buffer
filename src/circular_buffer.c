@@ -27,8 +27,10 @@
 
 #define CB_GET_TAIL_FORWARD_SPACE(cb)                                          \
     ({                                                                         \
-        CB_HEAD(cb) <= CB_TAIL(cb) ? (CB_BUFFER_SIZE(cb) - CB_TAIL(cb))        \
-                                   : (CB_HEAD(cb) - CB_TAIL(cb));              \
+        CB_HEAD(cb) <= CB_TAIL(cb)                                             \
+            ? (CB_BUFFER_SIZE(cb) - CB_TAIL(cb))                               \
+            : (CB_OVERWRITE_OLDEST(cb) ? (CB_BUFFER_SIZE(cb) - CB_TAIL(cb))    \
+                                       : CB_HEAD(cb) - CB_TAIL(cb));           \
     })
 
 #define CB_GET_HEAD_FORWARD_LEN(cb)                                            \
@@ -37,6 +39,10 @@
                                   : (CB_BUFFER_SIZE(cb) - CB_HEAD(cb));        \
     })
 
+#define CB_GET_NEXT_HEAD(cb)                                                   \
+    ((CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) + cb->internal.header_sz) %     \
+     CB_BUFFER_SIZE(cb))
+
 /*******************************************************************************
  * Private prototype
  ******************************************************************************/
@@ -44,6 +50,7 @@
 static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
                                         cb_size_t len);
 static cb_size_t get_empty_space(circular_buffer_t *cb);
+static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail);
 
 /*******************************************************************************
  * Public
@@ -188,25 +195,12 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     tail = (tail + element_len) %
            CB_BUFFER_SIZE(cb); /* Calculate new tail position */
 
+    execute_head_rotation(cb, tail);
+
     if (forward_space >= element_len) {
-        if (CB_OVERWRITE_OLDEST(cb) && CB_TAIL(cb) < CB_HEAD(cb) &&
-            CB_HEAD(cb) < tail) {
-            /* When a new element will overwrite the reference of the head */
-            while (CB_HEAD(cb) < tail) {
-                CB_HEAD(cb) = (CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) +
-                               cb->internal.header_sz) %
-                              CB_BUFFER_SIZE(cb);
-            }
-        }
         memcpy(bptr, data, element_len);
     } else {
         const cb_size_t shift_len = element_len - forward_space;
-        while (CB_OVERWRITE_OLDEST(cb) && CB_HEAD(cb) < shift_len) {
-            /* Skip packets smaller than shifted data */
-            CB_HEAD(cb) = (CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) +
-                           cb->internal.header_sz) %
-                          CB_BUFFER_SIZE(cb);
-        }
         memcpy(bptr, data, forward_space);
         memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space, shift_len);
     }
@@ -235,4 +229,33 @@ static cb_size_t get_empty_space(circular_buffer_t *cb) {
      * @brief 1 byte is reserved for Tail to be different from Head when the
      * buffer is full */
     return (len - 1);
+}
+
+static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
+    if (CB_OVERWRITE_OLDEST(cb)) {
+        /* When we have data rotation */
+        if (next_tail < CB_TAIL(cb)) {
+            /* The NEW tail can overwrite the head during rotation */
+            if (CB_TAIL(cb) > CB_HEAD(cb)) {
+                while (CB_HEAD(cb) < next_tail) {
+                    CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+                }
+            } else {
+                /* The head WILL be overwritten during the tail rotation and the
+                 * head must be moved above the NRE tail */
+                cb_size_t c_head = CB_HEAD(cb);
+                /* Ensures head rotation and head is above the new tail */
+                while (c_head <= CB_HEAD(cb) || CB_HEAD(cb) < next_tail) {
+                    CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+                }
+            }
+        } else {
+            /* When a new element will overwrite the reference of the head */
+            if (CB_TAIL(cb) < CB_HEAD(cb) && CB_HEAD(cb) < next_tail) {
+                while (CB_HEAD(cb) <= next_tail) {
+                    CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+                }
+            }
+        }
+    }
 }
