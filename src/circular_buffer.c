@@ -10,8 +10,8 @@
      CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
 
 #define CB_HEADER_GET_DATA_LEN(cb)                                             \
-    (cb->internal.dynamic_len                                                  \
-         ? ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) |                          \
+    (CB_DYNAMIC_LEN(cb)                                                     \
+         ? (((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) << 8) |                   \
             CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])         \
          : cb->buffer.element_len)
 
@@ -94,7 +94,7 @@ bool circular_buffer_has_enough_space(circular_buffer_t *cb, cb_size_t len) {
     if (cb == NULL)
         return false;
 
-    len = (cb->internal.dynamic_len) ? (len + CB_HEADER_SIZE) : len;
+    len = (CB_DYNAMIC_LEN(cb)) ? (len + CB_HEADER_SIZE) : len;
 
     if (CB_OVERWRITE_OLDEST(cb))
         return ((CB_BUFFER_SIZE(cb) - 1) >= len);
@@ -124,14 +124,13 @@ circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
     if (cb == NULL || o_buffer == NULL || size == 0)
         return CIRCULAR_BUFFER_INVALID_PARAM;
 
-    const bool dynamic_len = CB_ELEMENT_LEN(cb) == 0;
     cb_size_t head = CB_HEAD(cb);
     cb_size_t forward_len = CB_GET_HEAD_FORWARD_LEN(cb);
 
     if (circular_buffer_is_empty(cb))
         return CIRCULAR_BUFFER_SUCCESS;
 
-    if (dynamic_len) {
+    if (CB_DYNAMIC_LEN(cb)) {
         if (CB_HEADER_GET_ID(cb) != CB_HEADER_ID)
             return CIRCULAR_BUFFER_INVALID_HEADER;
         element_len = CB_HEADER_GET_DATA_LEN(cb);
@@ -154,7 +153,7 @@ circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
                element_len - forward_len);
     }
 
-    CB_HEAD(cb) = (head + element_len) % CB_BUFFER_SIZE(cb);
+    CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
     *o_element_len = element_len;
 
     return CIRCULAR_BUFFER_SUCCESS;
@@ -171,24 +170,19 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     if (cb == NULL || data == NULL || (CB_ELEMENT_LEN(cb) == 0 && len == 0))
         return CIRCULAR_BUFFER_INVALID_PARAM;
 
-    const bool dynamic_len = cb->internal.dynamic_len;
-    const cb_size_t element_len = dynamic_len ? len : CB_ELEMENT_LEN(cb);
+    const cb_size_t element_len =
+        CB_DYNAMIC_LEN(cb) ? len : CB_ELEMENT_LEN(cb);
     cb_size_t forward_space = CB_GET_TAIL_FORWARD_SPACE(cb);
     cb_size_t tail = CB_TAIL(cb);
 
     if (!circular_buffer_has_enough_space(cb, element_len))
         return CIRCULAR_BUFFER_INSUFFICIENT_SPACE;
 
-    if (dynamic_len) {
-        /**
-         * @brief Insert header: 2 BYTES (CB_HEADER_SIZE)
-         *          *  4 bits - header id (CB_HEADER_ID)
-         *          * 12 bits - data len
-         */
-        CB_HEADER_INSERT(cb, len);
+    if (CB_DYNAMIC_LEN(cb)) {
         tail = (tail + CB_HEADER_SIZE) % CB_BUFFER_SIZE(cb);
-        forward_space =
-            (forward_space <= CB_HEADER_SIZE) ? 0 : forward_space - 2;
+        forward_space = (forward_space <= CB_HEADER_SIZE)
+                            ? (CB_BUFFER_SIZE(cb) - CB_HEADER_SIZE + tail)
+                            : forward_space - CB_HEADER_SIZE;
     }
     bptr = CB_BUFFER_PTR(cb) + tail;
     tail = (tail + element_len) %
@@ -204,6 +198,14 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
         memcpy(CB_BUFFER_PTR(cb), (uint8_t *)data + forward_space, shift_len);
     }
 
+    if (CB_DYNAMIC_LEN(cb)) {
+        /**
+         * @brief Insert header: 2 BYTES (CB_HEADER_SIZE)
+         *          *  4 bits - header id (CB_HEADER_ID)
+         *          * 12 bits - data len
+         */
+        CB_HEADER_INSERT(cb, len);
+    }
     CB_TAIL(cb) = tail; /* Set new tail position */
 
     if (CB_OVERWRITE_OLDEST(cb)) {
@@ -250,7 +252,8 @@ static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
         } else {
             /* When a new element will overwrite the reference of the head */
             if (CB_TAIL(cb) < CB_HEAD(cb) && CB_HEAD(cb) < next_tail) {
-                while (CB_HEAD(cb) <= next_tail) {
+                cb_size_t c_head = CB_HEAD(cb);
+                while (CB_HEAD(cb) < next_tail && c_head <= CB_HEAD(cb)) {
                     CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
                 }
             }
