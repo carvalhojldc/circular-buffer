@@ -10,10 +10,10 @@
      CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])
 
 #define CB_HEADER_GET_DATA_LEN(cb)                                             \
-    (CB_DYNAMIC_LEN(cb)                                                     \
+    (CB_DYNAMIC_LEN(cb)                                                        \
          ? (((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0x0F) << 8) |                   \
             CB_BUFFER_PTR(cb)[(CB_HEAD(cb) + 1) % CB_BUFFER_SIZE(cb)])         \
-         : cb->buffer.element_len)
+         : CB_ELEMENT_LEN(cb))
 
 #define CB_HEADER_GET_ID(cb) ((CB_BUFFER_PTR(cb)[CB_HEAD(cb)] & 0xF0) >> 0x4)
 
@@ -40,7 +40,7 @@
     })
 
 #define CB_GET_NEXT_HEAD(cb)                                                   \
-    ((CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) + cb->internal.header_sz) %     \
+    ((CB_HEAD(cb) + CB_HEADER_GET_DATA_LEN(cb) + CB_HEADER_SZ(cb)) %           \
      CB_BUFFER_SIZE(cb))
 
 /*******************************************************************************
@@ -170,8 +170,7 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     if (cb == NULL || data == NULL || (CB_ELEMENT_LEN(cb) == 0 && len == 0))
         return CIRCULAR_BUFFER_INVALID_PARAM;
 
-    const cb_size_t element_len =
-        CB_DYNAMIC_LEN(cb) ? len : CB_ELEMENT_LEN(cb);
+    const cb_size_t element_len = CB_DYNAMIC_LEN(cb) ? len : CB_ELEMENT_LEN(cb);
     cb_size_t forward_space = CB_GET_TAIL_FORWARD_SPACE(cb);
     cb_size_t tail = CB_TAIL(cb);
 
@@ -204,7 +203,7 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
          *          *  4 bits - header id (CB_HEADER_ID)
          *          * 12 bits - data len
          */
-        CB_HEADER_INSERT(cb, len);
+        CB_HEADER_INSERT(cb, element_len);
     }
     CB_TAIL(cb) = tail; /* Set new tail position */
 

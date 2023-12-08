@@ -30,6 +30,9 @@ void test_circular_buffer_pop_4bytes(void);
 void test_circular_buffer_pop_dl_bytes(void);
 void test_circular_buffer_pop_small_out_buffer(void);
 
+void test_cb_dynamic_head_rotation(void);
+void test_cb_dynamic_data_rotation(void);
+
 void setUp(void) {}
 
 void tearDown(void) {}
@@ -64,6 +67,9 @@ int main(void) {
     RUN_TEST(test_circular_buffer_pop_4bytes);
     RUN_TEST(test_circular_buffer_pop_dl_bytes);
     RUN_TEST(test_circular_buffer_pop_small_out_buffer);
+
+    RUN_TEST(test_cb_dynamic_head_rotation);
+    RUN_TEST(test_cb_dynamic_data_rotation);
 
     return UNITY_END();
 }

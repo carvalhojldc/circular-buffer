@@ -43,6 +43,7 @@ typedef struct circular_buffer_s circular_buffer_t;
 #define CB_HEAD(cb) (cb->head)
 #define CB_TAIL(cb) (cb->tail)
 #define CB_DYNAMIC_LEN(cb) (cb->internal.dynamic_len)
+#define CB_HEADER_SZ(cb) (cb->internal.header_sz)
 
 #define CB_HEADER_ID (0x9) /* Header Id - 4 bits */
 #define CB_HEADER_SIZE (0x2)
