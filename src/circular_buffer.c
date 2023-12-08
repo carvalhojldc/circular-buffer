@@ -1,4 +1,5 @@
 #include "circular_buffer.h"
+#include "circular_buffer_porting.h"
 #include <string.h>
 
 /*******************************************************************************
@@ -153,7 +154,18 @@ circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
                element_len - forward_len);
     }
 
+#if CIRCULAR_BUFFER_USE_CRITICAL
+    if (CB_OVERWRITE_OLDEST(cb)) {
+        circular_buffer_ENTER_CRITICAL();
+    }
+#endif
     CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+#if CIRCULAR_BUFFER_USE_CRITICAL
+    if (CB_OVERWRITE_OLDEST(cb)) {
+        circular_buffer_EXIT_CRITICAL();
+    }
+#endif
+
     *o_element_len = element_len;
 
     return CIRCULAR_BUFFER_SUCCESS;
@@ -207,12 +219,6 @@ static circular_buffer_status_t cb_push(circular_buffer_t *cb, void *data,
     }
     CB_TAIL(cb) = tail; /* Set new tail position */
 
-    if (CB_OVERWRITE_OLDEST(cb)) {
-        if (CB_TAIL(cb) == CB_HEAD(cb)) {
-            CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
-        }
-    }
-
     return CIRCULAR_BUFFER_SUCCESS;
 }
 
@@ -232,6 +238,11 @@ static cb_size_t get_empty_space(circular_buffer_t *cb) {
 
 static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
     if (CB_OVERWRITE_OLDEST(cb)) {
+
+#if CIRCULAR_BUFFER_USE_CRITICAL
+        circular_buffer_ENTER_CRITICAL();
+#endif
+
         /* When we have data rotation */
         if (next_tail < CB_TAIL(cb)) {
             /* The NEW tail can overwrite the head during rotation */
@@ -257,5 +268,13 @@ static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
                 }
             }
         }
+
+        if (next_tail == CB_HEAD(cb)) {
+            CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+        }
+
+#if CIRCULAR_BUFFER_USE_CRITICAL
+        circular_buffer_EXIT_CRITICAL();
+#endif
     }
 }

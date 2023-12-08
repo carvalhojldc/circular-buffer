@@ -37,3 +37,29 @@ printf("len: %d\ndata: %s\n", element_len, out);
 
 ### Examples
 Available in the `samples` folder.
+
+## Porting
+
+### Critical section
+
+When enabling the `overwrite_oldest` option in environments with parallelism, it is recommended to enable the critical section to avoid data races when updating the `head`.
+
+Activate the option in your makefile:
+```bash
+CFLAGS=-DCIRCULAR_BUFFER_USE_CRITICAL=1
+```
+
+Run the deployment on your system:
+```c
+#include "circular_buffer_porting.h"
+
+/* Porting START */
+void circular_buffer_ENTER_CRITICAL(void) {
+    // TODO
+}
+
+void circular_buffer_EXIT_CRITICAL(void) {
+    // TODO
+}
+/* Porting END */
+```

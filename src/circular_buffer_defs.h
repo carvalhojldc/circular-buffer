@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifndef CIRCULAR_BUFFER_USE_CRITICAL
+#define CIRCULAR_BUFFER_USE_CRITICAL (0)
+#endif
+
 #ifndef cb_size_t
 typedef uint16_t cb_size_t;
 #endif
