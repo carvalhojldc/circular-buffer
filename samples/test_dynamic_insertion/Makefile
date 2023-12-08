@@ -15,7 +15,7 @@ ifeq ($(shell uname -s), Darwin)
 C_COMPILER=clang
 endif
 
-CFLAGS=-DCIRCULAR_BUFFER_USE_CRITICAL=1
+CFLAGS=
 
 TARGET_BASE=dynamic-inertion
 TARGET = $(TARGET_BASE)$(TARGET_EXTENSION)

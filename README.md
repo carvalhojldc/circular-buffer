@@ -44,22 +44,24 @@ Available in the `samples` folder.
 
 When enabling the `overwrite_oldest` option in environments with parallelism, it is recommended to enable the critical section to avoid data races when updating the `head`.
 
-Activate the option in your makefile:
+Activate the option on your makefile:
 ```bash
 CFLAGS=-DCIRCULAR_BUFFER_USE_CRITICAL=1
 ```
 
-Run the deployment on your system:
+Run the implementation on your system:
 ```c
 #include "circular_buffer_porting.h"
 
 /* Porting START */
 void circular_buffer_ENTER_CRITICAL(void) {
-    // TODO
+    // TODO: your implementation
 }
 
 void circular_buffer_EXIT_CRITICAL(void) {
-    // TODO
+    // TODO: your implementation
 }
 /* Porting END */
 ```
+
+Example with pthread: `samples/critical_section`

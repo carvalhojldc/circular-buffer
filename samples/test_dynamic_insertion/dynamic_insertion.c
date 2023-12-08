@@ -1,5 +1,4 @@
 #include "circular_buffer.h"
-#include "circular_buffer_porting.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,16 +15,6 @@ static char out[1000];
 static char data[1000];
 
 #define BUFFER_DUMP_ON_ERROR (1)
-
-/* Porting START */
-void circular_buffer_ENTER_CRITICAL(void) {
-    // TODO
-}
-
-void circular_buffer_EXIT_CRITICAL(void) {
-    // TODO
-}
-/* Porting END */
 
 void dump_buffer(uint8_t buffer[], const int size);
 void dump(void);
