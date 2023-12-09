@@ -1,5 +1,5 @@
 #include "circular_buffer.h"
-#include "circular_buffer_porting.h"
+#include "circular_buffer_critical_section.h"
 #include <string.h>
 
 /*******************************************************************************
@@ -115,60 +115,60 @@ circular_buffer_status_t circular_buffer_push_dl(circular_buffer_t *cb,
 
 circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
                                              uint8_t *o_buffer,
-                                             const cb_size_t size,
+                                             const cb_size_t buffer_size,
                                              cb_size_t *o_element_len) {
     uint8_t *bptr = NULL;
-    cb_size_t element_len;
+    cb_size_t element_len, head, forward_len;
+    circular_buffer_status_t ret;
 
     *o_element_len = 0;
 
-    if (cb == NULL || o_buffer == NULL || size == 0)
+    if (cb == NULL || o_buffer == NULL || buffer_size == 0)
         return CIRCULAR_BUFFER_INVALID_PARAM;
-
-    cb_size_t head = CB_HEAD(cb);
-    cb_size_t forward_len = CB_GET_HEAD_FORWARD_LEN(cb);
 
     if (circular_buffer_is_empty(cb))
         return CIRCULAR_BUFFER_SUCCESS;
 
+    CRITICAL_ENTER;
+
+    head = CB_HEAD(cb);
+    forward_len = CB_GET_HEAD_FORWARD_LEN(cb);
+
     if (CB_DYNAMIC_LEN(cb)) {
-        if (CB_HEADER_GET_ID(cb) != CB_HEADER_ID)
+        if (CB_HEADER_GET_ID(cb) == CB_HEADER_ID) {
+            forward_len = forward_len <= CB_HEADER_SIZE ? 0 : forward_len - 2;
+            head = (head + CB_HEADER_SIZE) % CB_BUFFER_SIZE(cb);
+        } else {
+            CRITICAL_EXIT;
             return CIRCULAR_BUFFER_INVALID_HEADER;
-        element_len = CB_HEADER_GET_DATA_LEN(cb);
-        forward_len = forward_len <= CB_HEADER_SIZE ? 0 : forward_len - 2;
-        head = (head + CB_HEADER_SIZE) % CB_BUFFER_SIZE(cb);
+        }
+    }
+
+    element_len =
+        CB_DYNAMIC_LEN(cb) ? CB_HEADER_GET_DATA_LEN(cb) : CB_ELEMENT_LEN(cb);
+
+    if (buffer_size >= element_len) {
+        bptr = CB_BUFFER_PTR(cb) + head;
+
+        if (forward_len >= element_len) {
+            memcpy(o_buffer, bptr, element_len);
+        } else {
+            memcpy(o_buffer, bptr, forward_len);
+            memcpy(o_buffer + forward_len, CB_BUFFER_PTR(cb),
+                   element_len - forward_len);
+        }
+
+        CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
+        *o_element_len = element_len;
+
+        ret = CIRCULAR_BUFFER_SUCCESS;
     } else {
-        element_len = CB_ELEMENT_LEN(cb);
+        ret = CIRCULAR_BUFFER_INSUFFICIENT_SPACE;
     }
 
-    if (size < element_len)
-        return CIRCULAR_BUFFER_INSUFFICIENT_SPACE;
+    CRITICAL_EXIT;
 
-    bptr = CB_BUFFER_PTR(cb) + head;
-
-    if (forward_len >= element_len) {
-        memcpy(o_buffer, bptr, element_len);
-    } else {
-        memcpy(o_buffer, bptr, forward_len);
-        memcpy(o_buffer + forward_len, CB_BUFFER_PTR(cb),
-               element_len - forward_len);
-    }
-
-#if CIRCULAR_BUFFER_USE_CRITICAL
-    if (CB_OVERWRITE_OLDEST(cb)) {
-        circular_buffer_ENTER_CRITICAL();
-    }
-#endif
-    CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
-#if CIRCULAR_BUFFER_USE_CRITICAL
-    if (CB_OVERWRITE_OLDEST(cb)) {
-        circular_buffer_EXIT_CRITICAL();
-    }
-#endif
-
-    *o_element_len = element_len;
-
-    return CIRCULAR_BUFFER_SUCCESS;
+    return ret;
 }
 
 /*******************************************************************************
@@ -237,11 +237,9 @@ static cb_size_t get_empty_space(circular_buffer_t *cb) {
 }
 
 static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
-    if (CB_OVERWRITE_OLDEST(cb)) {
+    if (CB_OVERWRITE_OLDEST(cb) && !circular_buffer_is_empty(cb)) {
 
-#if CIRCULAR_BUFFER_USE_CRITICAL
-        circular_buffer_ENTER_CRITICAL();
-#endif
+        CRITICAL_ENTER;
 
         /* When we have data rotation */
         if (next_tail < CB_TAIL(cb)) {
@@ -251,8 +249,8 @@ static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
                     CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
                 }
             } else {
-                /* The head WILL be overwritten during the tail rotation and the
-                 * head must be moved above the NRE tail */
+                /* The head WILL be overwritten during the tail rotation and
+                 * the head must be moved above the NRE tail */
                 cb_size_t c_head = CB_HEAD(cb);
                 /* Ensures head rotation and head is above the new tail */
                 while (c_head <= CB_HEAD(cb) || CB_HEAD(cb) < next_tail) {
@@ -260,7 +258,8 @@ static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
                 }
             }
         } else {
-            /* When a new element will overwrite the reference of the head */
+            /* When a new element will overwrite the reference of the head
+             */
             if (CB_TAIL(cb) < CB_HEAD(cb) && CB_HEAD(cb) < next_tail) {
                 cb_size_t c_head = CB_HEAD(cb);
                 while (CB_HEAD(cb) < next_tail && c_head <= CB_HEAD(cb)) {
@@ -273,8 +272,6 @@ static void execute_head_rotation(circular_buffer_t *cb, cb_size_t next_tail) {
             CB_HEAD(cb) = CB_GET_NEXT_HEAD(cb);
         }
 
-#if CIRCULAR_BUFFER_USE_CRITICAL
-        circular_buffer_EXIT_CRITICAL();
-#endif
+        CRITICAL_EXIT;
     }
 }

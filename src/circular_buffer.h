@@ -81,14 +81,14 @@ circular_buffer_status_t circular_buffer_push_dl(circular_buffer_t *cb,
  *
  * @param [in] cb Circular Buffer pointer
  * @param [out] o_buffer Pointer to the buffer used to save the read data
- * @param [in] size Buffer size in bytes
+ * @param [in] buffer_size Buffer size in bytes
  * @param [out] o_element_len Number of read bytes
  *
  * @return circular_buffer_status_t
  */
 circular_buffer_status_t circular_buffer_pop(circular_buffer_t *cb,
                                              uint8_t *o_buffer,
-                                             const cb_size_t size,
+                                             const cb_size_t buffer_size,
                                              cb_size_t *o_element_len);
 
 #endif /* CIRCULAR_BUFFER_H */

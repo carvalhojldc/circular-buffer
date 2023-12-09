@@ -18,8 +18,8 @@ static uint8_t b_backup[sizeof(buffer)];
 static char out[1000];
 static char data[1000];
 
-volatile bool pop_error = false;
 volatile bool push_working = true;
+pthread_t tpush, tpop;
 pthread_mutex_t mutex;
 
 #define BUFFER_DUMP_ON_ERROR (1)
@@ -43,7 +43,6 @@ void *thread_pop(void *vargp) {
     while (push_working || !circular_buffer_is_empty(&cb)) {
         usleep(100);
         if (pop_data()) { /* pop */
-            pop_error = true;
             return (NULL);
         }
     }
@@ -68,8 +67,6 @@ void *thread_push(void *vargp) {
                 if (push_data((rand() % 265) + 2)) { /* push */
                     return (NULL);
                 }
-                if (pop_error)
-                    return (NULL);
         }
         printf("End %d\n\n", nt);
     }
@@ -81,10 +78,10 @@ void *thread_push(void *vargp) {
 
 int main(void) {
     srand(time(NULL));
-    pthread_t tid;
 
-    pthread_create(&tid, NULL, thread_pop, (void *)&tid);
-    pthread_create(&tid, NULL, thread_push, (void *)&tid);
+    pthread_mutex_init(&mutex, NULL);
+    pthread_create(&tpop, NULL, thread_pop, (void *)&tpop);
+    pthread_create(&tpush, NULL, thread_push, (void *)&tpush);
 
     pthread_exit(NULL);
 
@@ -132,6 +129,7 @@ int pop_data(void) {
     printf("\n- pop");
     status = circular_buffer_pop(&cb, out, sizeof(out), &element_len);
     if (status != CIRCULAR_BUFFER_SUCCESS) {
+        pthread_cancel(tpush);
         printf("ERROR circular_buffer_pop %d\n", status);
 #if BUFFER_DUMP_ON_ERROR
         dump();
