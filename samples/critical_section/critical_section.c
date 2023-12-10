@@ -25,11 +25,11 @@ pthread_mutex_t mutex;
 #define BUFFER_DUMP_ON_ERROR (1)
 
 /* Porting START */
-void circular_buffer_ENTER_CRITICAL(void) {
+void circular_buffer_porting_CRITICAL_ENTER(void) {
     pthread_mutex_lock(&mutex);
 }
 
-void circular_buffer_EXIT_CRITICAL(void) {
+void circular_buffer_porting_CRITICAL_EXIT(void) {
     pthread_mutex_unlock(&mutex);
 }
 /* Porting END */
@@ -51,8 +51,8 @@ void *thread_pop(void *vargp) {
 void *thread_push(void *vargp) {
     int i, j, nt;
 
-    int n_times = 500;
-    int rotations = 500;
+    int n_times = 10000;
+    int rotations = 1000;
 
     for (nt = 1; nt <= n_times; nt++) {
         data_to_insert = 0;

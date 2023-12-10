@@ -7,11 +7,11 @@
 #if CIRCULAR_BUFFER_USE_CRITICAL
 #define CRITICAL_ENTER                                                         \
     if (CB_OVERWRITE_OLDEST(cb))                                               \
-    circular_buffer_ENTER_CRITICAL()
+    circular_buffer_porting_CRITICAL_ENTER()
 
 #define CRITICAL_EXIT                                                          \
     if (CB_OVERWRITE_OLDEST(cb))                                               \
-    circular_buffer_EXIT_CRITICAL()
+    circular_buffer_porting_CRITICAL_EXIT()
 #else
 #define CRITICAL_ENTER                                                         \
     {} /* disabled */

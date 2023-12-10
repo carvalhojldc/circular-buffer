@@ -29,6 +29,9 @@ status = circular_buffer_init(&cb,
 
 char *str = "Hello";
 status = circular_buffer_push_dl(&cb, str, strlen(str));
+
+str = " World!!!!";
+status = circular_buffer_push_dl(&cb, str, strlen(str));
 ...
 status = circular_buffer_pop(&cb, (uint8_t*)out, sizeof(out), &element_len);
 printf("len: %d\ndata: %s\n", element_len, out);
@@ -42,24 +45,28 @@ Available in the `samples` folder.
 
 ### Critical section
 
-When enabling the `overwrite_oldest` option in environments with parallelism, it is recommended to enable the critical section to avoid data races when updating the `head`.
+When enabling the `overwrite_oldest` option in environments with parallelism, it is recommended to enable the critical section protection to avoid data races when updating the `head`.
+
+To do this, the variable `CIRCULAR_BUFFER_USE_CRITICAL` must be set to `1` during the build process.
 
 Activate the option on your makefile:
 ```bash
 CFLAGS=-DCIRCULAR_BUFFER_USE_CRITICAL=1
 ```
 
-Run the implementation on your system:
+Run the porting implementation on your system:
 ```c
 #include "circular_buffer_porting.h"
 
 /* Porting START */
-void circular_buffer_ENTER_CRITICAL(void) {
+void circular_buffer_porting_CRITICAL_ENTER(void) {
     // TODO: your implementation
+    // Example: pthread_mutex_lock(&mutex);
 }
 
-void circular_buffer_EXIT_CRITICAL(void) {
+void circular_buffer_porting_CRITICAL_EXIT(void) {
     // TODO: your implementation
+    // Example: pthread_mutex_unlock(&mutex);
 }
 /* Porting END */
 ```

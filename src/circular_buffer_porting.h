@@ -1,8 +1,16 @@
 #ifndef CIRCULAR_BUFFER_PORTING_H
 #define CIRCULAR_BUFFER_PORTING_H
 
-void circular_buffer_ENTER_CRITICAL(void);
+/**
+ * @brief Porting critical section
+ *        Enter the critical section
+ */
+void circular_buffer_porting_CRITICAL_ENTER(void);
 
-void circular_buffer_EXIT_CRITICAL(void);
+/**
+ * @brief Porting critical section
+ *        Exit the critical section
+ */
+void circular_buffer_porting_CRITICAL_EXIT(void);
 
 #endif /* CIRCULAR_BUFFER_PORTING_H */
