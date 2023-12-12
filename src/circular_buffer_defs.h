@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifndef CIRCULAR_BUFFER_USE_CRITICAL
+#define CIRCULAR_BUFFER_USE_CRITICAL (0)
+#endif
+
 #ifndef cb_size_t
 typedef uint16_t cb_size_t;
 #endif
@@ -28,6 +32,10 @@ struct circular_buffer_s {
         bool overwrite_oldest;
         uint8_t element_len;
     } buffer;
+    struct {
+        bool dynamic_len;
+        cb_size_t header_sz;
+    } internal;
 };
 
 typedef struct circular_buffer_s circular_buffer_t;
@@ -38,6 +46,8 @@ typedef struct circular_buffer_s circular_buffer_t;
 #define CB_ELEMENT_LEN(cb) (cb->buffer.element_len)
 #define CB_HEAD(cb) (cb->head)
 #define CB_TAIL(cb) (cb->tail)
+#define CB_DYNAMIC_LEN(cb) (cb->internal.dynamic_len)
+#define CB_HEADER_SZ(cb) (cb->internal.header_sz)
 
 #define CB_HEADER_ID (0x9) /* Header Id - 4 bits */
 #define CB_HEADER_SIZE (0x2)
