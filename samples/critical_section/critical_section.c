@@ -51,8 +51,8 @@ void *thread_pop(void *vargp) {
 void *thread_push(void *vargp) {
     int i, j, nt;
 
-    int n_times = 10000;
-    int rotations = 1000;
+    int n_times = 1000;
+    int rotations = 500;
 
     for (nt = 1; nt <= n_times; nt++) {
         data_to_insert = 0;
