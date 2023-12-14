@@ -13,7 +13,8 @@ void print_error(circular_buffer_status_t status);
 int main(void) {
     printf("CB sample - Dynamic length\n");
 
-    status = circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
+    status = circular_buffer_init(&cb, buffer, sizeof(buffer), true,
+                                  CIRCULAR_BUFFER_DYNAMIC_LEN);
     print_error(status);
     if (status != CIRCULAR_BUFFER_SUCCESS)
         return 1;

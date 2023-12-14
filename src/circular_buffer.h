@@ -12,8 +12,8 @@
  * @param [in] size Buffer size (1 byte will be reserved to control the index)
  * @param [in] overwrite_oldest Overwrite oldest data when buffer is full (ring
  * insertion)
- * @param [in] element_len Length of each element to be save, use 0 for Dynamic
- * Length
+ * @param [in] element_len Length of each element to be save, use
+ * CIRCULAR_BUFFER_DYNAMIC_LEN for Dynamic Length
  *
  * @return circular_buffer_status_t (CIRCULAR_BUFFER_SUCCESS,
  * CIRCULAR_BUFFER_INVALID_PARAM)

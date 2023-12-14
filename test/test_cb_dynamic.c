@@ -10,7 +10,8 @@ void test_cb_dynamic_head_rotation(void) {
     int len;
 
     for (int i = 0; i < 4; i++) {
-        ret = circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
+        ret = circular_buffer_init(&cb, buffer, sizeof(buffer), true,
+                                   CIRCULAR_BUFFER_DYNAMIC_LEN);
         TEST_ASSERT_EQUAL_INT_MESSAGE(CIRCULAR_BUFFER_SUCCESS, ret,
                                       "test_cb_dynamic_head_rotation");
 

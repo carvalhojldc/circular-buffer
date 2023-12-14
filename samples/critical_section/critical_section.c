@@ -56,7 +56,8 @@ void *thread_push(void *vargp) {
 
     for (nt = 1; nt <= n_times; nt++) {
         data_to_insert = 0;
-        status = circular_buffer_init(&cb, buffer, sizeof(buffer), true, 0);
+        status = circular_buffer_init(&cb, buffer, sizeof(buffer), true,
+                                      CIRCULAR_BUFFER_DYNAMIC_LEN);
         if (status != CIRCULAR_BUFFER_SUCCESS) {
             printf("ERROR circular_buffer_init %d\n", status);
             return (NULL);
