@@ -12,7 +12,8 @@
 typedef uint16_t cb_size_t;
 #endif
 
-#define CB_MAX_ELEMENT_LEN (0xFFF)
+#define CIRCULAR_BUFFER_MAX_ELEMENT_LEN (0xFFF)
+#define CIRCULAR_BUFFER_DYNAMIC_LEN (0)
 
 enum circular_buffer_status_e {
     CIRCULAR_BUFFER_SUCCESS = 0,

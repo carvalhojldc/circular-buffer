@@ -24,8 +24,8 @@ char out[50] = {0};
 status = circular_buffer_init(&cb,
                               storage_buffer,
                               sizeof(storage_buffer),
-                              true,           /* true -> overwrite_oldest */
-                              0);             /* 0    -> element_len (dynamic length) */
+                              true, /* true -> overwrite_oldest */
+                              0); /* 0 or CIRCULAR_BUFFER_DYNAMIC_LEN -> element_len (dynamic length) */
 
 char *str = "Hello";
 status = circular_buffer_push_dl(&cb, str, strlen(str));
